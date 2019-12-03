@@ -254,6 +254,12 @@ STATUS ksgre_init_UI(void) {
 
   /* Gradient Echo Type of sequence */
   acq_type = TYPGRAD; /* loadrheader.e rheaderinit: sets eeff = 1 */
+  if (flyback)
+  {
+    _eeff.fixedflag = 0;
+    eeff = 0; /*Recon flag for Monopolar readout trapezoids*/
+    _eeff.fixedflag = 1;
+  }
 
   /* rampsampling on by default for SSFP scans to reduce TE & TR */
   ksgre_rampsampling = (oppseq == PSD_SSFP) ? TRUE : FALSE;
@@ -1247,7 +1253,12 @@ STATUS ksgre_predownload_plot(KS_SEQ_COLLECTION* seqcollection) {
  @retval STATUS `SUCCESS` or `FAILURE`
 ********************************************************************************************************/
 STATUS ksgre_predownload_setrecon() {
-
+  
+  if(flyback)
+  {
+    rhdacqctrl &= ~8; /* 0x0008 even echo freq flip */
+    eeff = 0;
+  }
   return SUCCESS;
 
 } /* ksgre_predownload_setrecon() */
