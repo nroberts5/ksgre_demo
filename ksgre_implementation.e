@@ -646,6 +646,18 @@ STATUS ksgre_eval_setupobjects() {
   if (ks_eval_trap(&ksgre.readdephaser, "readdephaser") == FAILURE)
     return FAILURE;
 
+  /* flyback gradient*/
+  if(flyback)
+  {
+    ksgre.flyback.area = -2.0 * ksgre.read.area2center;
+    if (ks_eval_trap(&ksgre.flyback, "flyback") == FAILURE)
+      return FAILURE;
+  }
+  else
+  {
+    ks_init_trap(&ksgre.flyback);
+  }
+
   /* read rephaser (SSFP) */
   if (oppseq == PSD_SSFP) {
     ksgre.readrephaser_ssfp.area = ksgre.read.area2center - ksgre.read.grad.area;
@@ -739,7 +751,14 @@ STATUS ksgre_eval_setupobjects() {
   }
 
   /* post-read spoiler */
-  ksgre.spoiler.area = (opnecho % 2 == 0) ? -1*ksgre_spoilerarea : ksgre_spoilerarea;
+  if(flyback)
+  {
+    ksgre.spoiler.area = ksgre_spoilerarea;
+  }
+  else
+  {
+    ksgre.spoiler.area = (opnecho % 2 == 0) ? -1*ksgre_spoilerarea : ksgre_spoilerarea;
+  }
   if (ks_eval_trap(&ksgre.spoiler, "spoiler") == FAILURE)
     return FAILURE;
 
