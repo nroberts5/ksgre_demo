@@ -1398,7 +1398,7 @@ STATUS ksgre_pg(int start_time) {
     {
       if(ks_pg_trap(&ksgre.flyback,tmploc,&ksgre.seqctrl)==FAILURE)
         return FAILURE;
-      tmploc.pos += ksgre.flyback.duration;
+      /*tmploc.pos += ksgre.flyback.duration;*/ /* Let's say we forgot to account for the duration of the flyback gradient*/
     }
     else if (!flyback)
     {
