@@ -49,14 +49,15 @@ typedef struct KSGRE_SEQUENCE {
   KS_TRAP readrephaser_ssfp; /**< Static dephaser for readout trapezoid (SSFP design) */
   KS_PHASER phaseenc; /**< Phase encoding (YGRAD). 2D & 3D */
   KS_PHASER zphaseenc; /**< 3D: Second phase encoding (ZGRAD) */
-  KS_TRAP spoiler; /**< Gradient spoiler at the end of sequence */
+  KS_TRAP spoilerx; /**< X Gradient spoiler at the end of sequence */
+  KS_TRAP spoilerz; /**< Z Gradient spoiler at the end of sequence */
   KS_SELRF selrfexc; /**< Excitation RF pulse with slice select and rephasing gradient */
   KS_TRAP fcompread; /**< Extra gradient for flowcomp in read direction */
   KS_TRAP fcompslice; /**< Extra gradient for flowcomp in slice direction */
   KS_PHASEENCODING_PLAN phaseenc_plan; /**<  Phase encoding plan, for 2D and 3D use */
 } KSGRE_SEQUENCE;
 #define KSGRE_INIT_SEQUENCE {KS_INIT_SEQ_CONTROL, KS_INIT_READTRAP, KS_INIT_TRAP, KS_INIT_TRAP, KS_INIT_TRAP, \
-                             KS_INIT_PHASER, KS_INIT_PHASER, KS_INIT_TRAP, KS_INIT_SELRF, KS_INIT_TRAP, KS_INIT_TRAP, KS_INIT_PHASEENCODING_PLAN};
+                             KS_INIT_PHASER, KS_INIT_PHASER, KS_INIT_TRAP, KS_INIT_TRAP, KS_INIT_SELRF, KS_INIT_TRAP, KS_INIT_TRAP, KS_INIT_PHASEENCODING_PLAN};
 
 
 
@@ -756,16 +757,20 @@ STATUS ksgre_eval_setupobjects() {
 
   }
 
-  /* post-read spoiler */
+  /* post-read X and Z spoilers */
   if(flyback)
   {
-    ksgre.spoiler.area = ksgre_spoilerarea;
+    ksgre.spoilerx.area = ksgre_spoilerarea;
+    ksgre.spoilerz.area = ksgre_spoilerarea;
   }
   else
   {
-    ksgre.spoiler.area = (opnecho % 2 == 0) ? -1*ksgre_spoilerarea : ksgre_spoilerarea;
+    ksgre.spoilerx.area = (opnecho % 2 == 0) ? -1*ksgre_spoilerarea : ksgre_spoilerarea;
+    ksgre.spoilerz.area = (opnecho % 2 == 0) ? -1*ksgre_spoilerarea : ksgre_spoilerarea;
   }
-  if (ks_eval_trap(&ksgre.spoiler, "spoiler") == FAILURE)
+  if (ks_eval_trap(&ksgre.spoilerx, "spoilerx") == FAILURE)
+    return FAILURE;
+  if (ks_eval_trap(&ksgre.spoilerz, "spoilerz") == FAILURE)
     return FAILURE;
 
   /* init seqctrl */
@@ -855,7 +860,7 @@ STATUS ksgre_eval_TErange() {
       } else {
         /* maximum TE dependent on the chosen TR */
         avmaxte = optr - ksgre.seqctrl.ssi_time; /* maximum sequence duration for this TR (implies one slice per TR) */
-        avmaxte -= ksgre.spoiler.duration; /* subtract ksgre.spoiler time */
+        avmaxte -= ksgre.spoilerx.duration; /* subtract ksgre.spoilerx time */
         avmaxte -= (ksgre.read.grad.duration - ksgre.read.time2center); /* center of k-space to end of read decay ramp + extra gap */
         if (opnecho > 1) {
           avmaxte -= (opnecho - 1) * (ksgre.read.grad.duration + ksgre_extragap); /* for multi-echo */
@@ -1209,7 +1214,8 @@ STATUS ksgre_predownload_plot(KS_SEQ_COLLECTION* seqcollection) {
   ks_print_trap(ksgre.readrephaser_ssfp, fp);
   ks_print_phaser(ksgre.phaseenc, fp);
   ks_print_phaser(ksgre.zphaseenc, fp);
-  ks_print_trap(ksgre.spoiler, fp);
+  ks_print_trap(ksgre.spoilerx, fp);
+  ks_print_trap(ksgre.spoilerz, fp);
   ks_print_selrf(ksgre.selrfexc, fp);
   fclose(fp);
 
@@ -1422,9 +1428,9 @@ STATUS ksgre_pg(int start_time) {
       return FAILURE;
     endposx = tmploc.pos + ksgre.readrephaser_ssfp.duration; /* absolute time for end of last waveform on X */
   } else {
-    if (ks_pg_trap(&ksgre.spoiler, tmploc, &ksgre.seqctrl) == FAILURE)
+    if (ks_pg_trap(&ksgre.spoilerx, tmploc, &ksgre.seqctrl) == FAILURE)
       return FAILURE;
-    endposx = tmploc.pos + ksgre.spoiler.duration; /* absolute time for end of last waveform on X */
+    endposx = tmploc.pos + ksgre.spoilerx.duration; /* absolute time for end of last waveform on X */
   }
 
   /********************  Y  ********************/
@@ -1466,9 +1472,9 @@ STATUS ksgre_pg(int start_time) {
 
   } else { /* non-SSFP */
 
-    if (ks_pg_trap(&ksgre.spoiler, tmploc, &ksgre.seqctrl) == FAILURE)
+    if (ks_pg_trap(&ksgre.spoilerz, tmploc, &ksgre.seqctrl) == FAILURE)
       return FAILURE;
-    endposz = tmploc.pos + ksgre.spoiler.duration;
+    endposz = tmploc.pos + ksgre.spoilerz.duration;
 
   }
 
