@@ -49,6 +49,7 @@
 @inline KSSpSat.e
 @inline KSChemSat.e
 @inline KSInversion.e
+@inline userCVmacro.e
 @inline ksgre_implementation.e
 
 @global
