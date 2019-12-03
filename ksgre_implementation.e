@@ -45,6 +45,7 @@ typedef struct KSGRE_SEQUENCE {
   KS_SEQ_CONTROL seqctrl; /**< Control object keeping track of the sequence and its components */
   KS_READTRAP read; /**< Readout trapezoid including data acquisition window */
   KS_TRAP readdephaser; /**< Static dephaser for readout trapezoid */
+  KS_TRAP flyback; /**< flyback gradient between monopolar readout trapezoids>*/
   KS_TRAP readrephaser_ssfp; /**< Static dephaser for readout trapezoid (SSFP design) */
   KS_PHASER phaseenc; /**< Phase encoding (YGRAD). 2D & 3D */
   KS_PHASER zphaseenc; /**< 3D: Second phase encoding (ZGRAD) */
@@ -54,7 +55,7 @@ typedef struct KSGRE_SEQUENCE {
   KS_TRAP fcompslice; /**< Extra gradient for flowcomp in slice direction */
   KS_PHASEENCODING_PLAN phaseenc_plan; /**<  Phase encoding plan, for 2D and 3D use */
 } KSGRE_SEQUENCE;
-#define KSGRE_INIT_SEQUENCE {KS_INIT_SEQ_CONTROL, KS_INIT_READTRAP, KS_INIT_TRAP, KS_INIT_TRAP, \
+#define KSGRE_INIT_SEQUENCE {KS_INIT_SEQ_CONTROL, KS_INIT_READTRAP, KS_INIT_TRAP, KS_INIT_TRAP, KS_INIT_TRAP, \
                              KS_INIT_PHASER, KS_INIT_PHASER, KS_INIT_TRAP, KS_INIT_SELRF, KS_INIT_TRAP, KS_INIT_TRAP, KS_INIT_PHASEENCODING_PLAN};
 
 
@@ -109,6 +110,14 @@ int ksgre_ellipsekspace = TRUE with {FALSE, TRUE, TRUE, VIS, "ky-kz coverage 0:R
 * Temporary CVs for testing
 *****************************************************************************************************/
 float ksgre_fattune = 0;
+
+
+/*****************************************************************************************************
+* myCVs
+*****************************************************************************************************/
+int flyback = 1 with {0,1,1,VIS,"Use flyback gradients",};
+
+
 
 @ipgexport
 /*******************************************************************************************************
@@ -498,6 +507,9 @@ STATUS ksgre_init_UI(void) {
   cvdesc(opuser16, userstr);
   piuset |= use16;
 #endif
+
+
+  SET_USER_CV(flyback, 3); /*MACRO to set user CV and show in advanced UI tab*/
   
   /*
      Reserved opusers:
