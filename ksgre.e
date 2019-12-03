@@ -243,7 +243,14 @@ STATUS predownload( void ) {
   /* generic rh-vars setup */
   GEReq_predownload_setrecon_readphase(&ksgre.read, &ksgre.phaseenc, KS_3D_SELECTED ? &ksgre.zphaseenc : NULL, \
                                        ksgre_imsize, KS_SAVEPFILES * autolock + KS_GERECON * (rhrecon < 1000) /* online recon if rhrecon < 1000 */);
-  GEReq_predownload_setrecon_annotations_readtrap(&ksgre.read, ksgre_extragap);
+  if (flyback)
+  {
+    GEReq_predownload_setrecon_annotations_readtrap(&ksgre.read, ksgre.flyback.duration + ksgre_extragap); /*Ensures ihte values (echo times) are set correctly*/
+  }
+  else
+  {
+    GEReq_predownload_setrecon_annotations_readtrap(&ksgre.read, ksgre_extragap);
+  }
   GEReq_predownload_setrecon_voldata(opfphases, ks_slice_plan); /* opfphases = number of volumes */
 
   /* KSInversion predownload */

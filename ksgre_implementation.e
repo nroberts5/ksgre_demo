@@ -1393,8 +1393,18 @@ STATUS ksgre_pg(int start_time) {
   for (i = 0; i < opnecho; i++) {
     if (ks_pg_readtrap(&ksgre.read, tmploc, &ksgre.seqctrl) == FAILURE)
       return FAILURE;
-    tmploc.pos += ksgre.read.grad.duration + ksgre_extragap * ((i + 1) < opnecho); /* don't add extra gap after the last readout */
-    tmploc.ampscale *= -1.0;
+    tmploc.pos += ksgre.read.grad.duration;
+    if (flyback && ((i + 1) < opnecho)) /* don't add flyback after the last readout*/
+    {
+      if(ks_pg_trap(&ksgre.flyback,tmploc,&ksgre.seqctrl)==FAILURE)
+        return FAILURE;
+      tmploc.pos += ksgre.flyback.duration;
+    }
+    else if (!flyback)
+    {
+      tmploc.ampscale *= -1.0;
+    }
+    tmploc.pos += ksgre_extragap * ((i + 1) < opnecho); /* don't add extra gap after the last readout */
   }
   readend_pos = tmploc.pos; /* absolute time for end of last readout trapezoid */
   tmploc.ampscale = 1.0;
