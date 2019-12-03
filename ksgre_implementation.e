@@ -49,6 +49,7 @@ typedef struct KSGRE_SEQUENCE {
   KS_TRAP readrephaser_ssfp; /**< Static dephaser for readout trapezoid (SSFP design) */
   KS_PHASER phaseenc; /**< Phase encoding (YGRAD). 2D & 3D */
   KS_PHASER zphaseenc; /**< 3D: Second phase encoding (ZGRAD) */
+  KS_PHASER zrewinder; /**< 3D: Second phase encoding (ZGRAD) */
   KS_TRAP spoilerx; /**< X Gradient spoiler at the end of sequence */
   KS_TRAP spoilerz; /**< Z Gradient spoiler at the end of sequence */
   KS_SELRF selrfexc; /**< Excitation RF pulse with slice select and rephasing gradient */
@@ -56,8 +57,7 @@ typedef struct KSGRE_SEQUENCE {
   KS_TRAP fcompslice; /**< Extra gradient for flowcomp in slice direction */
   KS_PHASEENCODING_PLAN phaseenc_plan; /**<  Phase encoding plan, for 2D and 3D use */
 } KSGRE_SEQUENCE;
-#define KSGRE_INIT_SEQUENCE {KS_INIT_SEQ_CONTROL, KS_INIT_READTRAP, KS_INIT_TRAP, KS_INIT_TRAP, KS_INIT_TRAP, \
-                             KS_INIT_PHASER, KS_INIT_PHASER, KS_INIT_TRAP, KS_INIT_TRAP, KS_INIT_SELRF, KS_INIT_TRAP, KS_INIT_TRAP, KS_INIT_PHASEENCODING_PLAN};
+#define KSGRE_INIT_SEQUENCE {KS_INIT_SEQ_CONTROL, KS_INIT_READTRAP, KS_INIT_TRAP, KS_INIT_TRAP, KS_INIT_TRAP, KS_INIT_PHASER, KS_INIT_PHASER, KS_INIT_PHASER, KS_INIT_TRAP, KS_INIT_TRAP, KS_INIT_SELRF, KS_INIT_TRAP, KS_INIT_TRAP, KS_INIT_PHASEENCODING_PLAN};
 
 
 
@@ -117,6 +117,7 @@ float ksgre_fattune = 0;
 * myCVs
 *****************************************************************************************************/
 int flyback = 1 with {0,1,1,VIS,"Use flyback gradients",};
+int zrewind = 1 with {0,1,1,VIS,"Rephase Z gradient (3D Imaging)",};
 
 
 
@@ -751,6 +752,25 @@ STATUS ksgre_eval_setupobjects() {
     if (ks_eval_phaser(&ksgre.zphaseenc, "zphaseenc") == FAILURE)
       return FAILURE;
 
+    if(zrewind)
+    {
+      ksgre.spoilerz.duration = 0; /* disable the spoilerz gradient (.duration = 0), and put area necessary in zrewinder.areaoffset */
+      ksgre.zrewinder.areaoffset = ksgre_spoilerarea; /* copy the area info */
+      ksgre.zrewinder.fov = opvthick;
+      ksgre.zrewinder.res = IMax(2, 8, opslquant);
+      ksgre.zrewinder.nover = 0;
+
+      if (ks_eval_phaser_setaccel(&ksgre.zrewinder, ksgre_minzacslines, opaccel_sl_stride) == FAILURE)
+        return FAILURE;
+
+      if (ks_eval_phaser(&ksgre.zrewinder, "zrewinder") == FAILURE)
+        return FAILURE;
+    }
+    else
+    {
+      ks_init_phaser(&ksgre.zrewinder);
+    }
+
   } else {
 
      ks_init_phaser(&ksgre.zphaseenc);
@@ -770,8 +790,17 @@ STATUS ksgre_eval_setupobjects() {
   }
   if (ks_eval_trap(&ksgre.spoilerx, "spoilerx") == FAILURE)
     return FAILURE;
-  if (ks_eval_trap(&ksgre.spoilerz, "spoilerz") == FAILURE)
-    return FAILURE;
+
+  if (!zrewind)
+  {
+    if (ks_eval_trap(&ksgre.spoilerz, "spoilerz") == FAILURE)
+      return FAILURE;
+  }
+  else
+  {
+    ks_init_trap(&ksgre.spoilerz);
+  }
+
 
   /* init seqctrl */
   ks_init_seqcontrol(&ksgre.seqctrl);
@@ -1472,6 +1501,16 @@ STATUS ksgre_pg(int start_time) {
 
   } else { /* non-SSFP */
 
+    if (zrewind && ksgre.zphaseenc.grad.duration > 0)
+    {
+      /* z phase encoding rephaser*/
+      if (ks_pg_phaser(&ksgre.zrewinder, tmploc, &ksgre.seqctrl) == FAILURE)
+        return FAILURE;
+      tmploc.pos += ksgre.zrewinder.grad.duration;
+
+      ks_scan_phaser_fromline(&ksgre.zrewinder, 0, 0);
+    }
+
     if (ks_pg_trap(&ksgre.spoilerz, tmploc, &ksgre.seqctrl) == FAILURE)
       return FAILURE;
     endposz = tmploc.pos + ksgre.spoilerz.duration;
@@ -1623,6 +1662,12 @@ STATUS ksgre_scan_seqstate(SCAN_INFO slice_info, int shot) {
   if (ksgre.zphaseenc.grad.duration > 0) { /* PSD_3D or PSD_3DM */
     /* dephaser (incl. slice rephaser in .areaoffset). instance #0 */
     ks_scan_phaser_toline(&ksgre.zphaseenc, 0, coord.kz);
+
+    if (zrewind)
+    {
+      /* rewinder (NOT including slice prephaser in .areaoffset for next excitation). instance #0 */
+      ks_scan_phaser_fromline(&ksgre.zrewinder, 0, coord.kz);
+    }
 
     if (ksgre.zphaseenc.grad.base.ngenerated == 2) {
       /* rephaser (incl. slice prephaser in .areaoffset for next excitation). instance #1 */
